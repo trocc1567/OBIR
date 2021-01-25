@@ -10,6 +10,6 @@ do
 	echo -n "n n *" | coap-client -m put coap://192.168.0.143:5683/rpn -f-
 done
 coap-client -m put coap://192.168.0.143:5683/rpn?all
-coap-client -m get coap://192.168.0.143:5683/metrics/metric1
-coap-client -m get coap://192.168.0.143:5683/metrics/metric2
-coap-client -m get coap://192.168.0.143:5683/metrics/metric3
+coap-client -m get coap://192.168.0.143:5683/metrics/GET_counter
+coap-client -m get coap://192.168.0.143:5683/metrics/PUT_counter
+coap-client -m get coap://192.168.0.143:5683/metrics/Waiting_for_ACK
