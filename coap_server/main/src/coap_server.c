@@ -23,6 +23,7 @@
 
 // Source file's tag
 static char *TAG = "coap_server";
+extern uint8_t packet_loss_flag=0;
 
 /* ------------------------------------- Declarations --------------------------------- */
 
@@ -45,9 +46,8 @@ void coap_example_thread(void *pvParameters){
     coap_startup();
     coap_set_log_level(COAP_LOGGING_LEVEL);
 
-    // Create CoAP module's context
-    coap_context_t *ctx = NULL;
-
+	// Create CoAP module's context
+	coap_context_t *ctx = NULL;
     // Run CoAP initialization process
     while (1) {
 
@@ -92,7 +92,11 @@ void coap_example_thread(void *pvParameters){
         ESP_LOGI(TAG, "Beginning dispatch loop");
         unsigned wait_ms = COAP_RESOURCE_CHECK_TIME * 1000;
         while (1) {
-
+			if (packet_loss_flag) 
+			{
+				coap_debug_set_packet_loss("0%");
+				packet_loss_flag=0;
+			}
             // Server incoming and outcoming packages
             int result = coap_run_once(ctx, wait_ms);
 
