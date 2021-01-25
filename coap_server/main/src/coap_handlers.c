@@ -5,6 +5,7 @@
 #include "rpn_stack.h"
 #include "lwip/apps/sntp.h"
 #include "coap_handlers.h"
+#include "coap_debug.h"
 
 
 /* --------------------------- Global & static definitions --------------------------- */
@@ -25,6 +26,7 @@ uint8_t rpn_expression_count = 0;
 //metrics
 uint8_t GET_counter=0;
 uint8_t PUT_counter=0;
+extern uint8_t packet_loss_flag;
 /* ---------------------------------------- Code -------------------------------------- */
 
 /**
@@ -66,7 +68,7 @@ int resources_init(coap_context_t *context){
     coap_add_resource(context, resource);
     
     /* =============================================================== */
-    /*               Resource: 'PUT inputs'					           */
+    /*               Resource: 'PUT inputs' (Resource with CON answer) */
     /* =============================================================== */
 
     // Create a new resource
@@ -88,7 +90,7 @@ int resources_init(coap_context_t *context){
     coap_add_resource(context, resource);
     
     /* =============================================================== */
-    /*       Resource: 'GET inputs'	(Resource with CON answer) 		   */
+    /*       Resource: 'GET inputs'									   */
     /* =============================================================== */
 
     // Create a new resource
@@ -110,7 +112,7 @@ int resources_init(coap_context_t *context){
     coap_add_resource(context, resource);
     
     /* =============================================================== */
-    /*      Resource: 'mectric3' (Resource with long access time)	   */
+    /*  Resource: 'Waiting for ACK' (Resource with long access time)   */
     /* =============================================================== */
 
     // Create a new resource
@@ -230,11 +232,11 @@ void hnd_get(
 	}
 	
 	// Handle ' GET /metrics/PUT_inputs' request
-    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("metrics/PUT_inputs")) ){
+    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("metrics/GET_inputs")) ){
         
         char bufor[20];
         uint8_t size;
-        size=snprintf(bufor, 14, "PUT inputs: %d", PUT_counter);
+        size=snprintf(bufor, 14, "GET inputs: %d", GET_counter);
         // Send data with dedicated function
         coap_add_data_blocked_response(
             resource,
@@ -250,11 +252,15 @@ void hnd_get(
     }
     
     // Handle ' GET /metrics/GET_inputs' request
-    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("metrics/GET_inputs")) ){
+    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("metrics/PUT_inputs")) ){
         
+        packet_loss_flag=1;
+        coap_debug_set_packet_loss("50%");
 		char bufor[20];
         uint8_t size;
-        size=snprintf(bufor, 14, "GET inputs: %d", GET_counter);
+        size=snprintf(bufor, 14, "PUT inputs: %d", PUT_counter);
+        //Answer as CON message
+        response->type=0;
         // Send data with dedicated function
         coap_add_data_blocked_response(
             resource,
@@ -267,6 +273,9 @@ void hnd_get(
             size,
             (uint8_t *) bufor
         );
+        
+        
+	//	coap_debug_set_packet_loss("0%");
     }
     
     // Handle ' GET /metrics/Waiting_for_ACK' request
