@@ -2,7 +2,7 @@
 #include <string.h>            // Basic string operations
 #include <errno.h>             // erno variable
 #include "coap.h"              // CoAP implementation
-#include "include/rpn_stack.h"
+#include "rpn_stack.h"
 #include "lwip/apps/sntp.h"
 #include "coap_handlers.h"
 
@@ -21,6 +21,10 @@ uint8_t colour[3] = {0};
 #define EXP_MAX_SIZE 30
 char rpn_col[RPN_MAX_SIZE][EXP_MAX_SIZE]={NULL};
 uint8_t rpn_expression_count = 0;
+
+//metrics
+uint8_t GET_counter=0;
+uint8_t PUT_counter=0;
 /* ---------------------------------------- Code -------------------------------------- */
 
 /**
@@ -34,65 +38,6 @@ int resources_init(coap_context_t *context){
 
     coap_resource_t *resource = NULL;
 
-    /* =================================================== */
-    /*            Resource: 'time' (observable)            */
-    /* =================================================== */
-
-    // Synchronise system time with global
-    if(! sntp_enabled() ){
-        sntp_setoperatingmode(SNTP_OPMODE_POLL);
-        sntp_setservername(0, "pool.ntp.org");
-        sntp_init();
-    }
-
-    // Create a new resource
-    if( !(resource = coap_resource_init(coap_make_str_const("time"), 0)) ){
-        coap_delete_all_resources(context);
-        return 0;
-    }
-
-    // Document a resource with attributes (describe resource when GET /.well-known/core is called)
-    coap_add_attr(resource,    coap_make_str_const("ct"), coap_make_str_const("\"plain text\""), 0);
-    coap_add_attr(resource,    coap_make_str_const("rt"),       coap_make_str_const("\"time\""), 0);
-    coap_add_attr(resource,    coap_make_str_const("if"),        coap_make_str_const("\"GET\""), 0);
-
-    // Register handlers for methods called on the resourse
-    coap_register_handler(resource, COAP_REQUEST_GET, hnd_get);
-
-    // Set the resource as observable
-    coap_resource_set_get_observable(resource, 1);
-
-    // Add the resource to the context
-    coap_add_resource(context, resource);
-
-
-    /* =================================================== */
-    /*               Resource: 'colour'                    */
-    /* =================================================== */
-
-    // Create a new resource
-    if( !(resource = coap_resource_init(coap_make_str_const("colour"), 0)) ){
-        coap_delete_all_resources(context);
-        return 0;
-    }
-
-    // Document a resource with attributes (describe resource when GET /.well-known/core is called)
-    coap_add_attr(resource,  coap_make_str_const("ct"), coap_make_str_const("\"plain text\""), 0);
-    coap_add_attr(resource,  coap_make_str_const("rt"),     coap_make_str_const("\"colour\""), 0);
-    coap_add_attr(resource,  coap_make_str_const("if"),    coap_make_str_const("\"GET PUT\""), 0);
-    coap_add_attr(resource, coap_make_str_const("put"),   coap_make_str_const("\"%d %d %d\""), 0);
-    
-
-    // Register handlers for methods called on the resourse
-    coap_register_handler(resource,    COAP_REQUEST_GET, hnd_get);
-    coap_register_handler(resource,    COAP_REQUEST_PUT, hnd_put);
-
-    // Set the resource as observable
-    coap_resource_set_get_observable(resource, 1);
-
-    // Add the resource to the context
-    coap_add_resource(context, resource);
-    
     /* =============================================================== */
     /*               Resource: 'RPN' (Reverse Polish Notation)         */
     /* =============================================================== */
@@ -121,18 +66,18 @@ int resources_init(coap_context_t *context){
     coap_add_resource(context, resource);
     
     /* =============================================================== */
-    /*               Resource: 'mectric1'					           */
+    /*               Resource: 'PUT inputs'					           */
     /* =============================================================== */
 
     // Create a new resource
-    if( !(resource = coap_resource_init(coap_make_str_const("metrics/metric1"), 0)) ){
+    if( !(resource = coap_resource_init(coap_make_str_const("metrics/PUT_inputs"), 0)) ){
         coap_delete_all_resources(context);
         return 0;
     }
 
     // Document a resource with attributes (describe resource when GET /.well-known/core is called)
     coap_add_attr(resource,  coap_make_str_const("ct"), coap_make_str_const("\"plain text\""), 0);
-    coap_add_attr(resource,  coap_make_str_const("rt"),     coap_make_str_const("\"metric1\""), 0);
+    coap_add_attr(resource,  coap_make_str_const("rt"),     coap_make_str_const("\"PUT_inputs\""), 0);
     coap_add_attr(resource,  coap_make_str_const("if"),    coap_make_str_const("\"GET\""), 0);
     
 
@@ -143,18 +88,18 @@ int resources_init(coap_context_t *context){
     coap_add_resource(context, resource);
     
     /* =============================================================== */
-    /*               Resource: 'mectric2'					           */
+    /*       Resource: 'GET inputs'	(Resource with CON answer) 		   */
     /* =============================================================== */
 
     // Create a new resource
-    if( !(resource = coap_resource_init(coap_make_str_const("metrics/metric2"), 0)) ){
+    if( !(resource = coap_resource_init(coap_make_str_const("metrics/GET_inputs"), 0)) ){
         coap_delete_all_resources(context);
         return 0;
     }
 
     // Document a resource with attributes (describe resource when GET /.well-known/core is called)
     coap_add_attr(resource,  coap_make_str_const("ct"), coap_make_str_const("\"plain text\""), 0);
-    coap_add_attr(resource,  coap_make_str_const("rt"),     coap_make_str_const("\"metric2\""), 0);
+    coap_add_attr(resource,  coap_make_str_const("rt"),     coap_make_str_const("\"GET_inputs\""), 0);
     coap_add_attr(resource,  coap_make_str_const("if"),    coap_make_str_const("\"GET\""), 0);
     
 
@@ -169,14 +114,14 @@ int resources_init(coap_context_t *context){
     /* =============================================================== */
 
     // Create a new resource
-    if( !(resource = coap_resource_init(coap_make_str_const("metrics/metric3"), 0)) ){
+    if( !(resource = coap_resource_init(coap_make_str_const("metrics/Waiting_for_ACK"), 0)) ){
         coap_delete_all_resources(context);
         return 0;
     }
 
     // Document a resource with attributes (describe resource when GET /.well-known/core is called)
     coap_add_attr(resource,  coap_make_str_const("ct"), coap_make_str_const("\"plain text\""), 0);
-    coap_add_attr(resource,  coap_make_str_const("rt"),     coap_make_str_const("\"metric3\""), 0);
+    coap_add_attr(resource,  coap_make_str_const("rt"),     coap_make_str_const("\"Waiting_for_ACK\""), 0);
     coap_add_attr(resource,  coap_make_str_const("if"),    coap_make_str_const("\"GET\""), 0);
     
 
@@ -211,54 +156,8 @@ void hnd_get(
     coap_string_t *query,
     coap_pdu_t *response
 ){
-
-    // Handle ' GET /time' request
-    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("time")) ){
-        
-        // Get currnt time
-        time_t now;
-        time(&now);
-        
-        // Transform us time into string-formatted tm struct 
-        char strftime_buf[100];
-        struct tm timeinfo;
-        localtime_r(&now, &timeinfo);
-        size_t length = 
-            strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-
-        // Send data with dedicated function
-        coap_add_data_blocked_response(
-            resource,
-            session,
-            request,
-            response,
-            token,
-            COAP_MEDIATYPE_TEXT_PLAIN,
-            0,
-            length,
-            (uint8_t *) strftime_buf
-        );
-    }    
-    // Handle ' GET /colour' request
-    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("colour")) ){
-        
-        // Construct text from the resource
-        char colour_buf[18];
-        size_t size = snprintf(colour_buf, 18, "R:%d G:%d B:%d", colour[R], colour[G], colour[B]);
-
-        // Send data with dedicated function
-        coap_add_data_blocked_response(
-            resource,
-            session,
-            request,
-            response,
-            token,
-            COAP_MEDIATYPE_TEXT_PLAIN,
-            0,
-            size,
-            (uint8_t *) colour_buf
-        );
-    }
+	
+	GET_counter++;
     // Handle ' GET /rpn' requests
     if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("rpn")) ){
 		
@@ -293,7 +192,7 @@ void hnd_get(
 				bufor_n+=2;
 				f_ampersand = strchr(query_bufor, '&');
 				if (f_ampersand>bufor_n)
-				strncpy(bufor_n, bufor_n, f_ampersand-bufor_n+1);
+				bufor_n[f_ampersand-bufor_n+1]='\0';
 				uint8_t n=atoi(bufor_n);
 				//Reading wyr variable
 				char * bufor_wyr;
@@ -304,7 +203,7 @@ void hnd_get(
 					bufor_wyr+=4;
 					f_ampersand = strchr(query_bufor, '&');
 					if (f_ampersand>bufor_wyr)
-					strncpy(bufor_wyr, bufor_wyr, f_ampersand-bufor_wyr+1);
+					bufor_wyr[f_ampersand-bufor_wyr+1]='\0';
 					uint8_t wyr=atoi(bufor_wyr);
 					//Checking wyr variable
 					if (wyr>rpn_expression_count) dlugosc = snprintf(rpn_buf, 11, "Wrong wyr");
@@ -330,10 +229,12 @@ void hnd_get(
         );
 	}
 	
-	// Handle ' GET /metrics/metric1' request
-    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("metrics/metric1")) ){
+	// Handle ' GET /metrics/PUT_inputs' request
+    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("metrics/PUT_inputs")) ){
         
-        
+        char bufor[20];
+        uint8_t size;
+        size=snprintf(bufor, 14, "PUT inputs: %d", PUT_counter);
         // Send data with dedicated function
         coap_add_data_blocked_response(
             resource,
@@ -343,15 +244,17 @@ void hnd_get(
             token,
             COAP_MEDIATYPE_TEXT_PLAIN,
             0,
-            1,
-            (uint8_t *) "1"
+            size,
+            (uint8_t *) bufor
         );
     }
     
-    // Handle ' GET /metrics/metric2' request
-    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("metrics/metric2")) ){
+    // Handle ' GET /metrics/GET_inputs' request
+    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("metrics/GET_inputs")) ){
         
-		
+		char bufor[20];
+        uint8_t size;
+        size=snprintf(bufor, 14, "GET inputs: %d", GET_counter);
         // Send data with dedicated function
         coap_add_data_blocked_response(
             resource,
@@ -361,16 +264,18 @@ void hnd_get(
             token,
             COAP_MEDIATYPE_TEXT_PLAIN,
             0,
-            1,
-            (uint8_t *) "2"
+            size,
+            (uint8_t *) bufor
         );
     }
     
-    // Handle ' GET /metrics/metric3' request
-    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("metrics/metric3")) ){
+    // Handle ' GET /metrics/Waiting_for_ACK' request
+    if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("metrics/Waiting_for_ACK")) ){
         //Sending empty answer
         coap_send_ack(session, request);
-        
+       char bufor[35];
+       uint8_t size;
+        size=snprintf(bufor, 35, "CON messages waiting for ACK: %d", session->con_active);
         //Sending data with dedicated function
         coap_add_data_blocked_response(
             resource,
@@ -380,8 +285,8 @@ void hnd_get(
             token,
             COAP_MEDIATYPE_TEXT_PLAIN,
             0,
-            1,
-            (uint8_t *) "3"
+            size,
+            (uint8_t *) bufor
         );
     }
 }
@@ -397,61 +302,8 @@ void hnd_put(
     coap_string_t *query,
     coap_pdu_t *response
 ){
-	//PUT for '/colour' resource
-	if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("colour")) )
-	{
-		// Get requests's payload
-		size_t size;
-		uint8_t *data;
-		coap_get_data(request, &size, &data);
-
-		// If data parsing fails (or no payload is present) set response code to 2.04 (Changed)
-		if (size == 0)
-			response->code = COAP_RESPONSE_CODE(400);
-		// Otherwise, try to parse data
-		else {
-			
-			// Create colour backup
-			uint8_t colour_bck[3];
-			colour_bck[R] = colour[R];
-			colour_bck[G] = colour[G];
-			colour_bck[B] = colour[B];
-
-			// By default, set response code to 2.04 (Changed)
-			response->code = COAP_RESPONSE_CODE(204);
-
-			// Parse three integers
-			for(int i = 0; i < 3; ++i){
-
-				char * endp;
-				errno = 0;
-				long col = strtol((char *) data, &endp, 10);
-
-				// If parsing failed reasume backup and call error
-				if((char *) data == endp){
-					colour[R] = colour_bck[R];
-					colour[G] = colour_bck[G];
-					colour[B] = colour_bck[B];
-					response->code = COAP_RESPONSE_CODE(400);
-					break;
-				} 
-				// If parsed value is out of range, cut it to the range's edge 
-				else if( col < 0)
-					colour[i] = 0;            
-				else if( col > 255)
-					colour[i] = 255;
-				// Otherwise, set colour value
-				else
-					colour[i] = (uint8_t) col;
-
-				data = (uint8_t *) endp;
-			}
-
-			// Notify observers, if any
-			if(response->code == COAP_RESPONSE_CHANGED)        
-				coap_resource_notify_observers(resource, NULL);
-		}
-	}
+	PUT_counter++;
+	
 	//PUT for '/rpn' resource
 	if( resource == coap_get_resource_from_uri_path(session->context, coap_make_str_const("rpn")) )
 	{
@@ -471,10 +323,6 @@ void hnd_put(
 			strcpy(rpn_col[rpn_expression_count], data);
 			rpn_expression_count++;
 			}
-
-			// Notify observers, if any
-			if(response->code == COAP_RESPONSE_CHANGED)        
-				coap_resource_notify_observers(resource, NULL);
 		}
 	}
 
