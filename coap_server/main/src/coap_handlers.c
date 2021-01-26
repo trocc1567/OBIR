@@ -331,6 +331,10 @@ void hnd_put(
 			//Writing new RPN expression to array
 			strcpy(rpn_col[rpn_expression_count], data);
 			rpn_expression_count++;
+			
+			// Notify observers, if any
+        		if(response->code == COAP_RESPONSE_CHANGED)        
+            		coap_resource_notify_observers(resource, NULL);
 			}
 		}
 	}
