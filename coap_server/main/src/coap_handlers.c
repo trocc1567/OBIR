@@ -254,7 +254,7 @@ void hnd_get(
         coap_debug_set_packet_loss("50%");
 		char bufor[20];
         uint8_t size;
-        size=snprintf(bufor, 14, "PUT inputs: %d", PUT_counter);
+        size=snprintf(bufor, 15, "PUT inputs: %d", PUT_counter);
         //Answer as CON message
         response->type=0;
         // Send data with dedicated function
