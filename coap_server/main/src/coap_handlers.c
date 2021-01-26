@@ -13,10 +13,6 @@
 // Source file's tag
 static char *TAG = "coap_handlers";
 
-// '/colour' resource buffer
-enum{R, G, B};
-uint8_t colour[3] = {0};
-
 // '/rpn' expressions array 
 #define RPN_MAX_SIZE 10
 #define EXP_MAX_SIZE 30
